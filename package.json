@@ -1,0 +1,16 @@
+{
+  "name": "circuit_sdk_example",
+  "version": "1.0.0",
+  "description": "circuit sdk example ",
+  "main": "index.js",
+  "dependencies": {
+    "bunyan": "^1.4.0",
+    "file-api": "^0.10.4"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Unify Inc.",
+  "license": "MIT"
+}
