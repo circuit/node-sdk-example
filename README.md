@@ -1,5 +1,5 @@
 # node-sdk-example
-Example for the [circuit node SDK](https://circuitsandbox.net/sdk/index.html)
+Example for the [circuit node SDK](https://circuitsandbox.net/sdk/index.html). 
 The example shows how to logon to circuit, register for events, lookup a conversation, send a message, attach files to a message, send a comment.
 
 ## Beta ##
