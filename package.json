@@ -1,6 +1,6 @@
 {
   "name": "circuit_sdk_example",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "circuit sdk example ",
   "main": "index.js",
   "dependencies": {

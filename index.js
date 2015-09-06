@@ -21,272 +21,408 @@
 */
 
 /*jshint node:true */
-/*global require */
+/*global require, Promise */
+
 'use strict';
 
+// load configuration
 var config = require('./config.json');
-var Circuit = require('circuit');
 
-var EventEmitter = require('events').EventEmitter;
+// logger
+var bunyan = require('bunyan');
+
+// SDK logger
+var sdkLogger = bunyan.createLogger({
+    name: 'sdk',
+    stream: process.stdout,
+    level: 'config.sdkLogLevel'
+});
+
+// Application logger
+var logger = bunyan.createLogger({
+    name: 'app',
+    stream: process.stdout,
+    level: 'debug'
+});
+
+// node utils
 var util = require('util');
+var assert = require('assert');
 
+// for file upload tests
 var FileAPI = require('file-api');
 var File = FileAPI.File;
-
 var fs = require('fs');
 
-///////////////////////////////////////////////////////////////////////////////////////////////
-// use bunyan to log API 
-///////////////////////////////////////////////////////////////////////////////////////////////
-var bunyan = require('bunyan');
-var logger = bunyan.createLogger({
-    name: 'test',
-    stream: process.stderr,
-    level: config.apiLogLevel
-});
-Circuit.setLogger(logger);
+// Circuit SDK    
+logger.info('[APP]: get Circuit instance');
+var Circuit = require('circuit');
 
-///////////////////////////////////////////////////////////////////////////////////////////////
-// Test 
-///////////////////////////////////////////////////////////////////////////////////////////////
-var Test = function () {
-    'user strict';
+logger.info('[APP]: Circuit set bunyan logger');
+Circuit.setLogger(sdkLogger);
+
+//*********************************************************************
+//* Test
+//*********************************************************************
+var Test = function(){
+
     var self = this;
-    self.user = null;               // logged on user for Test
-    self.conv = null;               // test conversation 
-    self.userEvtListeners = {};     // user event listeners
+    var clients = new Map(); // key:email -> value:client
 
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // addCircuitEventListeners
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    this.addCircuitEventListeners = function addCircuitEventListeners() {
-        console.info('-- addCircuitEventListeners');
-        Circuit.addEventListener('registrationStateChange', self.onRegistrationStateChange);
-        self.emit('circuitEventListenersAdded'); 
-    };
+    //*********************************************************************
+    //* logonUsers
+    //*********************************************************************
+    this.logonUsers = function logonUsers(){
+        logger.info('[APP]: createClients');
 
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // logon
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    this.logon = function logon() {
-        console.info('-- logon');
-        Circuit.logon(config.user, config.password, config.domain).then(function logonSuccess (user) {
-            self.user=user;
-            console.info('-- logon success');
-            self.emit('loggedOn');
-        }, function logonError (err) {
-            var error = new Error('logon failure "%s"', err);
-            self.emit('error', error);
+        return new Promise( function (resolve, reject) {
+
+            var logonTasks = [];
+            
+            config.users.forEach(function createClient (user){
+                logger.info('[APP]: createClient');
+                var client = new Circuit.Client({domain: config.domain});
+                self.addEventListeners(client);  //register evt listeners
+                clients.set(user.email, client); //add client to the map
+                logonTasks.push(client.logon(user.email, user.password));
+            });
+            
+            Promise.all(logonTasks)
+            .then(function(results) {
+                results.forEach(function(result){
+                    logger.info('[APP]: user logger on',result);
+                });
+                resolve();
+            })
+            .catch(reject);
         });
     };
 
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // addUserEventListeners
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    this.addUserEventListeners = function addUserEventListeners() {
-        console.info('-- addUserEventListeners ');
-        for (var i in self.userEvtListeners) {
-            self.user.addEventListener(i,self.userEvtListeners[i]);
-        }
-        self.emit('userEventListenersAdded');
+    //*********************************************************************
+    //* addEventListeners
+    //*********************************************************************
+    this.addEventListeners = function addEventListeners(client){
+        logger.info('[APP]: addEventListeners');
+
+        //set event callbacks for this client
+        client.addEventListener('connectionStateChanged', function (evt) {self.logEvent(evt)});
+        client.addEventListener('registrationStateChanged', function (evt) {self.logEvent(evt)});
+        client.addEventListener('reconnectFailed', function (evt) {self.logEvent(evt)});
+        client.addEventListener('itemAdded', function (evt) {self.logEvent(evt)});
+        client.addEventListener('itemUpdated', function (evt) {self.logEvent(evt)});
+        client.addEventListener('conversationCreated', function (evt) {self.logEvent(evt)});
+        client.addEventListener('conversationUpdated', function (evt) {self.logEvent(evt)});
+        client.addEventListener('userPresenceChanged', function (evt) {self.logEvent(evt)});
+        client.addEventListener('userUpdated', function (evt) {self.logEvent(evt)});
+        client.addEventListener('userSettingsUpdated', function (evt) {self.logEvent(evt)});
+        client.addEventListener('basicSearchResults', function (evt) {self.logEvent(evt)});
     };
 
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // reconnect
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    this.reconnect = function reconnect() {
-        console.info('-- reconnect ');
-            console.info('-- logout ');
-            self.user.logout();
-            self.user = null;
+    //*********************************************************************
+    //* logEvent -- helper
+    //*********************************************************************
+    this.logEvent = function logEvent(evt){
+        logger.info('[APP]:', evt.type, 'event received');
+        logger.debug('[APP]:', util.inspect(evt, { showHidden: true, depth: null }));
     };
 
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // getConversation
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    this.getConversation = function getConversation() {
-        console.info('-- getConversation ', config.testConv);
-        self.user.getConversation(config.testConv, function getConversationCallback(err, conv) {
-            console.log('-- getConversationCallback ');
-            if (err) {
-                var error = new Error('COULD NOT GET CONVERSATION "%s"', err);
-                self.emit('error', error);
-                return;
-            }
-            self.conv = conv;
-            self.emit('gotConversation');
+    //*********************************************************************
+    //* testAddItemsToConversation
+    //*********************************************************************
+    this.testAddItemsToConversation = function testAddItemsToConversation(){
+        logger.info('[APP]: testAddItemsToConversation');
+
+        // test scenario:
+        // user 1 looks up the direct conversation with user 2
+        // if the conversation is not found, user 1 creates a direct conversation
+        // user 1 sends a message to user 2
+        // user 2 responds with a comment
+
+        return new Promise( function (resolve, reject) {
+            var thisConversation = null;
+
+            var user1Email = config.users[0].email;
+            var user2Email = config.users[1].email;
+
+            var client1 = self.getClient(user1Email);
+            var client2 = self.getClient(user2Email);
+
+            logger.info('[APP]: emails ', user1Email, user2Email);
+
+            client1.getDirectConversationWithUser(user2Email)
+
+            .then( function checkIfConversationExists (conversation) {
+                logger.info('[APP]: checkIfConversationExists', conversation);
+                if (conversation){
+                    logger.info('[APP]: conversation exists', conversation.convId);
+                    return Promise.resolve(conversation);
+                } else {
+                    logger.info('[APP]: conversation does not exist, create new conversation');
+                    return client1.createDirectConversation(user2Email);
+                }    
+            })
+
+            .then( function client1AddsTextItem(conversation){
+                logger.info('[APP]: client1AddsTextItem');
+                thisConversation = conversation;
+                return client1.addTextItem(conversation.convId, 'Hello from' + user1Email);
+            })
+
+            .then( function client2RespondsWithComment(item){
+                logger.info('[APP]: client2RespondsWithComment');
+                var response = { 
+                    convId: item.convId, 
+                    parentId: item.itemId, 
+                    content: 'Hello from ' + user2Email
+                };
+                return client2.addTextItem(item.convId, response);
+            })
+
+            .then(function returnResults(item){
+                logger.info('[APP]: returnResults');
+                resolve( { client:client1, conv:thisConversation, item:item } );
+            })
+
+            .catch(reject);
         });
     };
 
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // sendMessage
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    this.sendMessage = function sendMessage() {
-         console.info('-- sendMessage ');
-         self.conv.sendMessage('send message test', function sendMessageCallback(err, item) {
-            console.log('-- sendMessageCallback ');
-            if (err) {
-                var error = new Error('COULD NOT SEND MESSAGE "%s"', err);
-                self.emit('error', error);
-                return;
-            }
-            self.emit('messageSent',item);
+
+    //*********************************************************************
+    //* testLikes
+    //*********************************************************************
+    this.testLikes = function testLikes(data){
+        logger.info('[APP]: testLikes');
+        return new Promise( function (resolve, reject) {
+            var client = data.client;
+            var item = data.item;
+            var conv = data.conv;
+
+            //user likes item
+            client.likeItem(item.itemId)
+
+            //user unlikes item
+            .then(function unlike(){
+                return client.unlikeItem(item.itemId);
+            })
+
+            //user likes item again
+            .then( function like() {
+                return client.likeItem(item.itemId);
+            })
+
+            .then(function returnResults() {
+                resolve( { client:client, conv:conv, item:item } ); 
+            })
+
+            .catch(reject);
         });
     };
 
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // uplaodFiles
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    this.uplaodFiles = function uploadFiles() {
-        console.info('-- uploadFiles ');
+    //*********************************************************************
+    //* testFlags
+    //*********************************************************************
+    this.testFlags = function testFlags(data){
+        logger.info('[APP]: testFlags');
+        return new Promise( function (resolve, reject) {
+            var client = data.client;
+            var item = data.item;
+            var conv = data.conv;
+
+            //user sets flag on item
+            client.setFlagItem(conv.convId, item.itemId)
+
+             //user clears flag on item
+            .then(function unlike(){
+                return client.clearFlagItem(conv.convId, item.itemId);
+            })
+
+           //user sets flag on item again
+            .then(function like() {
+                return client.setFlagItem(conv.convId, item.itemId);
+            })
+
+            .then( function returnParameters(){
+                return resolve(data);
+            })
+
+            .catch(reject);
+        });
+    };
+
+    //*********************************************************************
+    //* testMarkAsRead
+    //*********************************************************************
+    this.testMarkAsRead = function testMarkAsRead (data){
+        logger.info('[APP]: testMarkAsRead');
+        return new Promise( function (resolve, reject) {
+            var client = data.client;
+            var item = data.item;
+            var conv = data.conv;
+
+            client.markItemsAsRead(conv.convId, item.modificationTime)
+
+            .then(function returnPrameters(){
+                return resolve(data);
+            })
+
+            .catch(reject);
+        });
+    };
+
+    //*********************************************************************
+    //* testPresence
+    //*********************************************************************
+    this.testPresence = function testPresence (data){
+        logger.debug('[APP]: testPresence');
+        return new Promise( function (resolve, reject) {
+            var client = data.client;
+            var userIdsList = [self.getUserId(config.users[1].email)];
+            logger.debug('[APP]:',self.getEmail(client), 'subscribes to', userIdsList);
+
+            client.subscribePresence(userIdsList)
+
+            .then (function setPresence(){
+                var user2 = config.users[1].email;
+                var client2 = self.getClient(user2);
+                var presenceState = {state: 'AWAY', dndUntil:0};
+                logger.debug('[APP]: setPresence', presenceState,'for', user2, self.getUserId(user2));
+                return client2.setPresence(presenceState);
+            })
+
+            .then (function getPresence(){
+                logger.debug('[APP]: getPresence');
+                return client.getPresence(userIdsList, false);
+            })
+
+            .then (function logPresence(presenceList){
+                logger.debug('[APP]: presenceList\n', util.inspect(presenceList, { showHidden: true, depth: null }));
+                return Promise.resolve();
+            })
+
+            // .then (function unsubscribePresence(){
+            //     logger.debug('[APP]:',self.getEmail(client), 'unsubscribes from', userIdsList);
+            //     return client.unsubscribePresence(userIdsList);
+            // })      
+
+            .then(function returnParameters(){
+                logger.debug('[APP]: done with presence tests');
+                return resolve(data);
+            })
+
+            .catch(reject);
+        });
+    };
+
+    //*********************************************************************
+    //* testFileUpload
+    //*********************************************************************
+    this.testFileUpload = function testFileUpload (data){
+        logger.debug('[APP]: testFileUpload');
+        return new Promise( function (resolve, reject) {
+            var conv = data.conv;
+            var client = data.client;
+            var files = self.getFiles(config.filesPath);
+            var message = {content: 'test file upload', attachments: files};
+
+            client.addTextItem(conv.convId, message)
+
+            .then (function returnParameters(){
+                return resolve(data);
+            })
+
+            .catch(reject);
+        });
+    };
+
+    //*********************************************************************
+    //* sentByMe -- helper
+    //*********************************************************************
+    this.sentByMe = function sentByMe (client, item){
+        return (client.loggedOnUser.userId === item.creatorId);
+    };
+
+    //*********************************************************************
+    //* getEmail -- helper
+    //*********************************************************************
+    this.getEmail = function getEmail (client){
+        return (client.loggedOnUser.emailAddress);
+    };
+
+    //*********************************************************************
+    //* getUserId -- helper
+    //*********************************************************************
+    this.getUserId = function getUserId (email){
+        return clients.get(email).loggedOnUser.userId;
+    };
+
+    //*********************************************************************
+    //* getClient -- helper
+    //*********************************************************************
+    this.getClient = function getClient (email){
+        return clients.get(email);
+    };
+
+    //*********************************************************************
+    //* getFiles -- helper
+    //*********************************************************************
+    this.getFiles = function getFiles (path){
         var files = [];
-        var path = config.filesPath;
-
         var fileNames = fs.readdirSync(path);
         fileNames.forEach(function(element){
             var file = new File(path + element);
             files.push(file);           
         });
+        logger.debug('[APP]: getFiles' + files);
+        return files;
+    };
 
-        var message = {text: 'file upload test', files: files};
-        console.info('message :' + JSON.stringify(message, ' ', 2));
+    //*********************************************************************
+    //* terminate -- helper
+    //*********************************************************************
+    this.terminate = function terminate (err){
+        var error = new Error(err);
+        logger.error('[APP]: Test failed ' + error.message);
+        logger.error(error.stack);
+        process.exit(1);    
+    };
 
-         self.conv.sendMessage(message, function uploadFilesCallback(err, item) {
-            console.log('-- uploadFilesCallback ');
-            if (err) {
-                var error = new Error('UPLOADFILES - COULD NOT SEND MESSAGE "%s"', err);
-                self.emit('error', error);
-                return;
-            }
-            self.emit('filesUploaded',item);
-        });
+    //*********************************************************************
+    //* done -- helper
+    //*********************************************************************
+    this.done = function done (){
+        logger.info('[APP]: Completed Tests');
     };    
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // sendComment
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    this.sendComment = function sendComment(parentItemId) {
-        console.info('-- sendComment ', parentItemId);
-        self.conv.sendComment(parentItemId, 'send comment test', function sendCommentCallback(err, item) {
-            console.log('-- sendCommentCallback ');
-            if (err) {
-                var error = new Error('COULD NOT SEND COMMENT "%s"', err);
-                self.emit('error', error);
-                return;
-            }
-            self.emit('commentSent',item);
-        });
-    };
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // onRegistrationStateChange
-    ///////////////////////////////////////////////////////////////////////////////////////////////    this.onRegistrationStateChange = function (evt) {
-    this.onRegistrationStateChange = function onRegistrationStateChange(evt) {
-        console.info('-- onRegistrationStateChange ', evt.state);
-        if (evt.state === 'Disconnected'){
-          self.emit('disconnected');  
-        }
-    };
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // onItemAdded
-    ///////////////////////////////////////////////////////////////////////////////////////////////    this.onRegistrationStateChange = function (evt) {
-    this.onItemAdded = function  onItemAdded(evt) {
-        console.info('-- onItemAdded ', evt.item.text);
-        self.emit('itemAdded', evt.item);
-    };
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // onItemChanged
-    ///////////////////////////////////////////////////////////////////////////////////////////////    this.onRegistrationStateChange = function (evt) {
-    this.onItemChanged = function  onItemChanged(evt) {
-        console.info('-- onItemChanged ', evt.item.text);
-    };
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // onRenewTokenError
-    ///////////////////////////////////////////////////////////////////////////////////////////////    this.onRegistrationStateChange = function (evt) {
-    this.onRenewTokenError = function  onRenewTokenError() {
-        console.info('-- onRenewTokenError ');
-        this.reconnect();
-    };
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    // add user listeners to be registered
-    /////////////////////////////////////////////////////////////////////////////////////////////// 
-    this.userEvtListeners.itemAdded = this.onItemAdded;
-    this.userEvtListeners.itemUpdated = this.onItemChanged;
-    this.userEvtListeners.renewTokenError = this.onRenewTokenError;
 };
 
-util.inherits(Test, EventEmitter);
-
-
-///////////////////////////////////////////////////////////////////////////////////////////////
-// runTest 
-///////////////////////////////////////////////////////////////////////////////////////////////
+//*********************************************************************
+//* runTest
+//*********************************************************************
 function runTest() {
+
     var test = new Test();
-
-    test.on('circuitEventListenersAdded', function () {
-        console.info('-- circuitEventListenersAdded');
-        this.logon();
-    });
-
-    test.on('loggedOn', function () {
-        console.info('-- loogedOn');
-        this.addUserEventListeners();
-    });
-
-    test.on('userEventListenersAdded', function () {
-        console.info('-- userEventListenersAdded');
-        this.getConversation();
-    });     
-
-    test.on('gotConversation', function () {
-        console.info('-- gotConversation');
-        this.uplaodFiles();
-
-    });    
-
-    test.on('messageSent', function (item) {
-        console.info('-- message sent ' + item.itemId);
-    });  
-
-    test.on('commentSent', function (item) {
-        console.info('-- comment sent ' + item.itemId);
-    });
-
-    test.on('filesUploaded', function (item) {
-        console.info('-- filesUploaded ' + item.itemId);
-        this.sendMessage();
-
-    }); 
-
-    test.on('itemAdded', function (item) {
-        console.info('-- itemAdded ' + item.itemId);
-
-        if(item.parent){
-            console.info('-- parent ' + item.parent.itemId);
-            return;
-        }
-        this.sendComment(item.itemId);
-    });   
-
-    test.on('disconnected', function () {
-        console.info('-- disconnected');
-        global.setTimeout(this.logon, config.minLogonInterval);
-    });
-
-    test.on('error', function (err) {
-        console.error('-- test failed ');
-        console.error('-- test failed: ' + err.message);
-        console.error(err.stack);
-        process.exit(1);
-    });
-
-    test.addCircuitEventListeners();
-
+     
+    assert(config.users.length >= 2,'At least two users need to be configured in config.json');
+ 
+     test.logonUsers()
+        .then (test.testAddItemsToConversation)
+        .then (test.testLikes)
+        .then (test.testFlags)
+        .then (test.testMarkAsRead)
+        .then (test.testPresence)
+        .then (test.testFileUpload)
+//            ... more tests
+        .then (test.done)
+        .catch (test.terminate);
 }
 
+//*********************************************************************
+//* main
+//*********************************************************************
 runTest();
+
+
+
+
+    
+    

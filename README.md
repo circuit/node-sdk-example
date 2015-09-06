@@ -5,6 +5,16 @@ The example shows how to logon to circuit, register for events, lookup a convers
 ## Beta ##
 The circuit SDK and related examples are in Beta. While we are in Beta, we may still make incompatible changes. 
 
+Several changes have been made to the SDK
+* APIs return a Promise instead of using a callback
+* Support for Presence
+* Support for Likes
+* Support for Flags
+* Support for multiple users
+* Reduced dependencies, and footprint
+* Improved performance
+
+
 ## Requirements ##
 * [node 0.12.x or higher](http://nodejs.org/download/)
 * circuit module
@@ -18,15 +28,20 @@ The circuit SDK and related examples are in Beta. While we are in Beta, we may s
 ```
 
 Edit config.json
-* Change "user" and "password" to the circuit account you'll use for the example.
+* Change "user" and "password" to the circuit accounts you'll use for the example.
     you can request a circuit account at the [Circuit Developer Community Portal](https://www.yourcircuit.com/web/developers).
-* Change "testConv" to the ID of a conversation you created using the circuit client. The conversation ID is included in the conversation URL you see in the browser e.g. ff2736ad-eeca-4557-b9c1-e799416d4556 for https://circuitsandbox.net/#/conversation/ff2736ad-eeca-4557-b9c1-e799416d4556.
 
 ```bash
-    "user"               : "your circuit user ID",
-    "password"           : "your circuit password",
-    "testConv"           : "your test conversation ID",
-    
+"users" : [
+        {
+            "email"    : "user 1 email",
+            "password" : "user 1 password"          
+        },
+        {
+            "email"    : "user 2 email",
+            "password" : "user 2 password"          
+        }
+    ],
 ``` 
  
  Run the sample application with 
