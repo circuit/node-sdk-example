@@ -27,7 +27,7 @@ Several changes have been made to the SDK
 ```
 
 Edit config.json
-* Change "user" and "password" to the circuit accounts you'll use for the example.
+* Change "user" and "password" for the circuit accounts you'll use to run the example.
     you can request a circuit account at the [Circuit Developer Community Portal](https://www.yourcircuit.com/web/developers).
 
 ```bash
