@@ -1,9 +1,15 @@
 {
-    "user"               : "your circuit account",
-    "password"           : "your circuit password",
+	"users" : [
+		{
+			"email"    : "user 1 email",
+			"password" : "user 1 password"			
+		},
+		{
+			"email"    : "user 2 email",
+			"password" : "user 2 password"			
+		}
+	],
     "domain"             : "circuitsandbox.net",
-    "minLogonInterval"   : "60000",
-    "apiLogLevel"        : "error",
-    "testConv"           : "your test conversation ID",
+    "sdkLogLevel"        : "warn",
     "filesPath"          : "./files/"
 }
