@@ -52,8 +52,11 @@ Edit config.json
     node index.js
 ``` 
 
+ If you do not have wget installed, you can also use curl to download circuit.tgz
+```bash
+curl "https://circuitsandbox.net/circuit.tgz" -o "circuit.tgz"
+``` 
 
- 
 
 
  
