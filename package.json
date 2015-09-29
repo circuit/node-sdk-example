@@ -4,7 +4,7 @@
   "description": "circuit sdk example ",
   "main": "index.js",
   "dependencies": {
-    "bunyan": "^1.4.0",
+    "bunyan": "^1.5.1",
     "file-api": "^0.10.4"
   },
   "devDependencies": {},
