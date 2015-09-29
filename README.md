@@ -16,7 +16,7 @@ Several changes have been made to the SDK
 
 ## Requirements ##
 * [node 4.x](http://nodejs.org/download/)
-* circuit module
+* [circuit module](https://circuitsandbox.net/sdk/)
 
 ## Getting Started ##
 
