@@ -15,7 +15,7 @@ Several changes have been made to the SDK
 * Improved performance
 
 ## Requirements ##
-* [node 0.12.x or higher](http://nodejs.org/download/)
+* [node 4.x](http://nodejs.org/download/)
 * circuit module
 
 ## Getting Started ##
