@@ -35,7 +35,7 @@ var bunyan = require('bunyan');
 var sdkLogger = bunyan.createLogger({
     name: 'sdk',
     stream: process.stdout,
-    level: 'config.sdkLogLevel'
+    level: config.sdkLogLevel
 });
 
 // Application logger
@@ -54,7 +54,7 @@ var FileAPI = require('file-api');
 var File = FileAPI.File;
 var fs = require('fs');
 
-// Circuit SDK    
+// Circuit SDK
 logger.info('[APP]: get Circuit instance');
 var Circuit = require('circuit');
 
@@ -64,7 +64,7 @@ Circuit.setLogger(sdkLogger);
 //*********************************************************************
 //* Test
 //*********************************************************************
-var Test = function(){
+var Test = function () {
 
     var self = this;
     var clients = new Map(); // key:email -> value:client
@@ -72,25 +72,25 @@ var Test = function(){
     //*********************************************************************
     //* logonUsers
     //*********************************************************************
-    this.logonUsers = function logonUsers(){
+    this.logonUsers = function logonUsers() {
         logger.info('[APP]: createClients');
 
-        return new Promise( function (resolve, reject) {
+        return new Promise(function (resolve, reject) {
 
             var logonTasks = [];
-            
-            config.users.forEach(function createClient (user){
+
+            config.users.forEach(function createClient(user) {
                 logger.info('[APP]: createClient');
                 var client = new Circuit.Client({domain: config.domain});
                 self.addEventListeners(client);  //register evt listeners
                 clients.set(user.email, client); //add client to the map
                 logonTasks.push(client.logon(user.email, user.password));
             });
-            
+
             Promise.all(logonTasks)
-            .then(function(results) {
-                results.forEach(function(result){
-                    logger.info('[APP]: user logger on',result);
+            .then(function (results) {
+                results.forEach(function (result) {
+                    logger.info('[APP]: user logger on', result);
                 });
                 resolve();
             })
@@ -101,7 +101,7 @@ var Test = function(){
     //*********************************************************************
     //* addEventListeners
     //*********************************************************************
-    this.addEventListeners = function addEventListeners(client){
+    this.addEventListeners = function addEventListeners(client) {
         logger.info('[APP]: addEventListeners');
 
         //set event callbacks for this client
@@ -121,7 +121,7 @@ var Test = function(){
     //*********************************************************************
     //* logEvent -- helper
     //*********************************************************************
-    this.logEvent = function logEvent(evt){
+    this.logEvent = function logEvent(evt) {
         logger.info('[APP]:', evt.type, 'event received');
         logger.debug('[APP]:', util.inspect(evt, { showHidden: true, depth: null }));
     };
@@ -129,7 +129,7 @@ var Test = function(){
     //*********************************************************************
     //* testAddItemsToConversation
     //*********************************************************************
-    this.testAddItemsToConversation = function testAddItemsToConversation(){
+    this.testAddItemsToConversation = function testAddItemsToConversation() {
         logger.info('[APP]: testAddItemsToConversation');
 
         // test scenario:
@@ -138,7 +138,7 @@ var Test = function(){
         // user 1 sends a message to user 2
         // user 2 responds with a comment
 
-        return new Promise( function (resolve, reject) {
+        return new Promise(function (resolve, reject) {
             var thisConversation = null;
 
             var user1Email = config.users[0].email;
@@ -151,36 +151,36 @@ var Test = function(){
 
             client1.getDirectConversationWithUser(user2Email)
 
-            .then( function checkIfConversationExists (conversation) {
+            .then(function checkIfConversationExists(conversation) {
                 logger.info('[APP]: checkIfConversationExists', conversation);
-                if (conversation){
+                if (conversation) {
                     logger.info('[APP]: conversation exists', conversation.convId);
                     return Promise.resolve(conversation);
                 } else {
                     logger.info('[APP]: conversation does not exist, create new conversation');
                     return client1.createDirectConversation(user2Email);
-                }    
+                }
             })
 
-            .then( function client1AddsTextItem(conversation){
+            .then(function client1AddsTextItem(conversation) {
                 logger.info('[APP]: client1AddsTextItem');
                 thisConversation = conversation;
                 return client1.addTextItem(conversation.convId, 'Hello from' + user1Email);
             })
 
-            .then( function client2RespondsWithComment(item){
+            .then(function client2RespondsWithComment(item) {
                 logger.info('[APP]: client2RespondsWithComment');
-                var response = { 
-                    convId: item.convId, 
-                    parentId: item.itemId, 
+                var response = {
+                    convId: item.convId,
+                    parentId: item.itemId,
                     content: 'Hello from ' + user2Email
                 };
                 return client2.addTextItem(item.convId, response);
             })
 
-            .then(function returnResults(item){
+            .then(function returnResults(item) {
                 logger.info('[APP]: returnResults');
-                resolve( { client:client1, conv:thisConversation, item:item } );
+                resolve({ client: client1, conv: thisConversation, item: item });
             })
 
             .catch(reject);
@@ -191,9 +191,9 @@ var Test = function(){
     //*********************************************************************
     //* testLikes
     //*********************************************************************
-    this.testLikes = function testLikes(data){
+    this.testLikes = function testLikes(data) {
         logger.info('[APP]: testLikes');
-        return new Promise( function (resolve, reject) {
+        return new Promise(function (resolve, reject) {
             var client = data.client;
             var item = data.item;
             var conv = data.conv;
@@ -202,17 +202,17 @@ var Test = function(){
             client.likeItem(item.itemId)
 
             //user unlikes item
-            .then(function unlike(){
+            .then(function unlike() {
                 return client.unlikeItem(item.itemId);
             })
 
             //user likes item again
-            .then( function like() {
+            .then(function like() {
                 return client.likeItem(item.itemId);
             })
 
             .then(function returnResults() {
-                resolve( { client:client, conv:conv, item:item } ); 
+                resolve({ client: client, conv: conv, item: item });
             })
 
             .catch(reject);
@@ -222,9 +222,9 @@ var Test = function(){
     //*********************************************************************
     //* testFlags
     //*********************************************************************
-    this.testFlags = function testFlags(data){
+    this.testFlags = function testFlags(data) {
         logger.info('[APP]: testFlags');
-        return new Promise( function (resolve, reject) {
+        return new Promise(function (resolve, reject) {
             var client = data.client;
             var item = data.item;
             var conv = data.conv;
@@ -233,7 +233,7 @@ var Test = function(){
             client.setFlagItem(conv.convId, item.itemId)
 
              //user clears flag on item
-            .then(function unlike(){
+            .then(function unlike() {
                 return client.clearFlagItem(conv.convId, item.itemId);
             })
 
@@ -242,7 +242,7 @@ var Test = function(){
                 return client.setFlagItem(conv.convId, item.itemId);
             })
 
-            .then( function returnParameters(){
+            .then(function returnParameters() {
                 return resolve(data);
             })
 
@@ -253,16 +253,16 @@ var Test = function(){
     //*********************************************************************
     //* testMarkAsRead
     //*********************************************************************
-    this.testMarkAsRead = function testMarkAsRead (data){
+    this.testMarkAsRead = function testMarkAsRead(data) {
         logger.info('[APP]: testMarkAsRead');
-        return new Promise( function (resolve, reject) {
+        return new Promise(function (resolve, reject) {
             var client = data.client;
             var item = data.item;
             var conv = data.conv;
 
             client.markItemsAsRead(conv.convId, item.modificationTime)
 
-            .then(function returnPrameters(){
+            .then(function returnPrameters() {
                 return resolve(data);
             })
 
@@ -273,29 +273,29 @@ var Test = function(){
     //*********************************************************************
     //* testPresence
     //*********************************************************************
-    this.testPresence = function testPresence (data){
+    this.testPresence = function testPresence(data) {
         logger.debug('[APP]: testPresence');
-        return new Promise( function (resolve, reject) {
+        return new Promise(function (resolve, reject) {
             var client = data.client;
             var userIdsList = [self.getUserId(config.users[1].email)];
-            logger.debug('[APP]:',self.getEmail(client), 'subscribes to', userIdsList);
+            logger.debug('[APP]:', self.getEmail(client), 'subscribes to', userIdsList);
 
             client.subscribePresence(userIdsList)
 
-            .then (function setPresence(){
+            .then (function setPresence() {
                 var user2 = config.users[1].email;
                 var client2 = self.getClient(user2);
-                var presenceState = {state: 'AWAY', dndUntil:0};
-                logger.debug('[APP]: setPresence', presenceState,'for', user2, self.getUserId(user2));
+                var presenceState = {state: 'AWAY', dndUntil: 0};
+                logger.debug('[APP]: setPresence', presenceState, 'for', user2, self.getUserId(user2));
                 return client2.setPresence(presenceState);
             })
 
-            .then (function getPresence(){
+            .then (function getPresence() {
                 logger.debug('[APP]: getPresence');
                 return client.getPresence(userIdsList, false);
             })
 
-            .then (function logPresence(presenceList){
+            .then (function logPresence(presenceList) {
                 logger.debug('[APP]: presenceList\n', util.inspect(presenceList, { showHidden: true, depth: null }));
                 return Promise.resolve();
             })
@@ -303,9 +303,9 @@ var Test = function(){
             // .then (function unsubscribePresence(){
             //     logger.debug('[APP]:',self.getEmail(client), 'unsubscribes from', userIdsList);
             //     return client.unsubscribePresence(userIdsList);
-            // })      
+            // })
 
-            .then(function returnParameters(){
+            .then(function returnParameters() {
                 logger.debug('[APP]: done with presence tests');
                 return resolve(data);
             })
@@ -317,9 +317,9 @@ var Test = function(){
     //*********************************************************************
     //* testFileUpload
     //*********************************************************************
-    this.testFileUpload = function testFileUpload (data){
+    this.testFileUpload = function testFileUpload(data) {
         logger.debug('[APP]: testFileUpload');
-        return new Promise( function (resolve, reject) {
+        return new Promise(function (resolve, reject) {
             var conv = data.conv;
             var client = data.client;
             var files = self.getFiles(config.filesPath);
@@ -327,7 +327,7 @@ var Test = function(){
 
             client.addTextItem(conv.convId, message)
 
-            .then (function returnParameters(){
+            .then (function returnParameters() {
                 return resolve(data);
             })
 
@@ -338,40 +338,40 @@ var Test = function(){
     //*********************************************************************
     //* sentByMe -- helper
     //*********************************************************************
-    this.sentByMe = function sentByMe (client, item){
+    this.sentByMe = function sentByMe(client, item) {
         return (client.loggedOnUser.userId === item.creatorId);
     };
 
     //*********************************************************************
     //* getEmail -- helper
     //*********************************************************************
-    this.getEmail = function getEmail (client){
+    this.getEmail = function getEmail(client) {
         return (client.loggedOnUser.emailAddress);
     };
 
     //*********************************************************************
     //* getUserId -- helper
     //*********************************************************************
-    this.getUserId = function getUserId (email){
+    this.getUserId = function getUserId(email) {
         return clients.get(email).loggedOnUser.userId;
     };
 
     //*********************************************************************
     //* getClient -- helper
     //*********************************************************************
-    this.getClient = function getClient (email){
+    this.getClient = function getClient(email) {
         return clients.get(email);
     };
 
     //*********************************************************************
     //* getFiles -- helper
     //*********************************************************************
-    this.getFiles = function getFiles (path){
+    this.getFiles = function getFiles(path) {
         var files = [];
         var fileNames = fs.readdirSync(path);
-        fileNames.forEach(function(element){
+        fileNames.forEach(function (element) {
             var file = new File(path + element);
-            files.push(file);           
+            files.push(file);
         });
         logger.debug('[APP]: getFiles' + files);
         return files;
@@ -380,19 +380,19 @@ var Test = function(){
     //*********************************************************************
     //* terminate -- helper
     //*********************************************************************
-    this.terminate = function terminate (err){
+    this.terminate = function terminate(err) {
         var error = new Error(err);
         logger.error('[APP]: Test failed ' + error.message);
         logger.error(error.stack);
-        process.exit(1);    
+        process.exit(1);
     };
 
     //*********************************************************************
     //* done -- helper
     //*********************************************************************
-    this.done = function done (){
+    this.done = function done() {
         logger.info('[APP]: Completed Tests');
-    };    
+    };
 };
 
 //*********************************************************************
@@ -401,19 +401,19 @@ var Test = function(){
 function runTest() {
 
     var test = new Test();
-     
-    assert(config.users.length >= 2,'At least two users need to be configured in config.json');
- 
-     test.logonUsers()
-        .then (test.testAddItemsToConversation)
-        .then (test.testLikes)
-        .then (test.testFlags)
-        .then (test.testMarkAsRead)
-        .then (test.testPresence)
-        .then (test.testFileUpload)
+
+    assert(config.users.length >= 2, 'At least two users need to be configured in config.json');
+
+    test.logonUsers()
+       .then (test.testAddItemsToConversation)
+       .then (test.testLikes)
+       .then (test.testFlags)
+       .then (test.testMarkAsRead)
+       .then (test.testPresence)
+       .then (test.testFileUpload)
 //            ... more tests
-        .then (test.done)
-        .catch (test.terminate);
+       .then (test.done)
+       .catch (test.terminate);
 }
 
 //*********************************************************************
@@ -424,5 +424,5 @@ runTest();
 
 
 
-    
-    
+
+
