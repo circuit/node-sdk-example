@@ -1,5 +1,5 @@
 # node-sdk-example
-Example for the [circuit node SDK](https://circuitsandbox.net/sdk/index.html). 
+Example for the [circuit node SDK](https://circuitsandbox.net/sdk). 
 The example shows how to logon to circuit, register for events, lookup a conversation, send a message, attach files to a message, send a comment.
 
 ## Beta ##
@@ -21,7 +21,7 @@ Several changes have been made to the SDK
 ## Getting Started ##
 
 ```bash
-    git clone https://github.com/yourcircuit/node-sdk-example.git
+    git clone https://github.com/circuit/node-sdk-example.git
     cd node-sdk-example
     cp config.json.template config.json
 ```
