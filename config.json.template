@@ -1,15 +1,15 @@
 {
-	"users" : [
-		{
-			"email"    : "user 1 email",
-			"password" : "user 1 password"			
-		},
-		{
-			"email"    : "user 2 email",
-			"password" : "user 2 password"			
-		}
-	],
-    "domain"             : "circuitsandbox.net",
-    "sdkLogLevel"        : "warn",
-    "filesPath"          : "./files/"
+  "bots" : [
+    {
+      "client_id": "b1376280114c4062b7be44eb00bba048",
+      "client_secret": "6dc45749dc034b09b451229bc9aa5f97"			
+    },
+    {
+      "client_id": "7311e4957bef4e16b666a3774286d249",
+      "client_secret": "d70c4b53e8264204834bb182f5510c68"			
+    }
+  ],
+  "domain": "circuitsandbox.net",
+  "sdkLogLevel": "warn",
+  "filesPath": "./files/"
 }
