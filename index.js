@@ -1,34 +1,29 @@
-/*
-    Copyright (c) 2015 Unify Inc.
-
-    Permission is hereby granted, free of charge, to any person obtaining
-    a copy of this software and associated documentation files (the "Software"),
-    to deal in the Software without restriction, including without limitation
-    the rights to use, copy, modify, merge, publish, distribute, sublicense,
-    and/or sell copies of the Software, and to permit persons to whom the Software
-    is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in
-    all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
-    OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-    IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-    CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-    TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
-    OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+/**
+ *  Copyright 2017 Unify Software and Solutions GmbH & Co.KG.
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */
 
 /*jshint node:true */
 /*global require, Promise */
 
 'use strict';
 
-// load configuration
+// Load configuration
 var config = require('./config.json');
 
-// logger
+// Logger
 var bunyan = require('bunyan');
 
 // SDK logger
@@ -56,7 +51,7 @@ var fs = require('fs');
 
 // Circuit SDK
 logger.info('[APP]: get Circuit instance');
-var Circuit = require('circuit');
+var Circuit = require('circuit-node-sdk');
 
 logger.info('[APP]: Circuit set bunyan logger');
 Circuit.setLogger(sdkLogger);
@@ -64,72 +59,62 @@ Circuit.setLogger(sdkLogger);
 //*********************************************************************
 //* Test
 //*********************************************************************
-var Test = function () {
+var Test = function() {
 
     var self = this;
     var clients = new Map(); // key:email -> value:client
 
     //*********************************************************************
-    //* logonUsers
+    //* logonBots
     //*********************************************************************
-    this.logonUsers = function logonUsers() {
-        logger.info('[APP]: createClients');
+    this.logonBots = function() {
+        logger.info('[APP]: create client instances');
 
         return new Promise(function (resolve, reject) {
-
             var logonTasks = [];
 
-            config.users.forEach(function createClient(user) {
+            config.bots.forEach(bot => {
                 logger.info('[APP]: createClient');
-                var client = new Circuit.Client({domain: config.domain});
-                self.addEventListeners(client);  //register evt listeners
-                clients.set(user.email, client); //add client to the map
-                logonTasks.push(client.logon(user.email, user.password));
+                // Use Client Credentials grant for the bots
+                var client = new Circuit.Client({
+                    client_id: bot.client_id,
+                    client_secret: bot.client_secret,
+                    domain: config.domain
+                });
+                self.addEventListeners(client);  // register evt listeners
+                clients.set(bot.client_id, client); // add client to the map
+                logonTasks.push(client.logon());
             });
 
             Promise.all(logonTasks)
-            .then(function (results) {
-                results.forEach(function (result) {
-                    logger.info('[APP]: user logger on', result);
-                });
-                resolve();
-            })
-            .catch(reject);
+                .then(results => {
+                    results.forEach(result => logger.info(`[APP]: Bot {bot.displayName} logged on`));
+                    resolve();
+                })
+                .catch(reject);
         });
     };
 
     //*********************************************************************
     //* addEventListeners
     //*********************************************************************
-    this.addEventListeners = function addEventListeners(client) {
+    this.addEventListeners = function(client) {
         logger.info('[APP]: addEventListeners');
-
-        //set event callbacks for this client
-        client.addEventListener('connectionStateChanged', function (evt) {self.logEvent(evt)});
-        client.addEventListener('registrationStateChanged', function (evt) {self.logEvent(evt)});
-        client.addEventListener('reconnectFailed', function (evt) {self.logEvent(evt)});
-        client.addEventListener('itemAdded', function (evt) {self.logEvent(evt)});
-        client.addEventListener('itemUpdated', function (evt) {self.logEvent(evt)});
-        client.addEventListener('conversationCreated', function (evt) {self.logEvent(evt)});
-        client.addEventListener('conversationUpdated', function (evt) {self.logEvent(evt)});
-        client.addEventListener('userPresenceChanged', function (evt) {self.logEvent(evt)});
-        client.addEventListener('userUpdated', function (evt) {self.logEvent(evt)});
-        client.addEventListener('userSettingsUpdated', function (evt) {self.logEvent(evt)});
-        client.addEventListener('basicSearchResults', function (evt) {self.logEvent(evt)});
+        Circuit.supportedEvents.forEach(e => client.addEventListener(e, self.logEvent));
     };
 
     //*********************************************************************
     //* logEvent -- helper
     //*********************************************************************
-    this.logEvent = function logEvent(evt) {
-        logger.info('[APP]:', evt.type, 'event received');
+    this.logEvent = function(evt) {
+        logger.info(`[APP]: ${evt.type} event received`);
         logger.debug('[APP]:', util.inspect(evt, { showHidden: true, depth: null }));
     };
 
     //*********************************************************************
     //* testAddItemsToConversation
     //*********************************************************************
-    this.testAddItemsToConversation = function testAddItemsToConversation() {
+    this.testAddItemsToConversation = function() {
         logger.info('[APP]: testAddItemsToConversation');
 
         // test scenario:
@@ -141,49 +126,48 @@ var Test = function () {
         return new Promise(function (resolve, reject) {
             var thisConversation = null;
 
-            var user1Email = config.users[0].email;
-            var user2Email = config.users[1].email;
+            var bot1ClientId = config.bots[0].client_id;
+            var bot2ClientId = config.bots[1].client_id;
 
-            var client1 = self.getClient(user1Email);
-            var client2 = self.getClient(user2Email);
+            var bot1Email = config.bots[0].email;
+            var bot2Email = config.bots[1].email;
 
-            logger.info('[APP]: emails ', user1Email, user2Email);
+            var client1 = self.getClient(bot1ClientId);
+            var client2 = self.getClient(bot2ClientId);
 
-            client1.getDirectConversationWithUser(user2Email)
+            logger.info('[APP]: Bot clientId\'s ', bot1ClientId, bot2ClientId);
 
-            .then(function checkIfConversationExists(conversation) {
-                logger.info('[APP]: checkIfConversationExists', conversation);
-                if (conversation) {
-                    logger.info('[APP]: conversation exists', conversation.convId);
-                    return Promise.resolve(conversation);
-                } else {
-                    logger.info('[APP]: conversation does not exist, create new conversation');
-                    return client1.createDirectConversation(user2Email);
-                }
-            })
-
-            .then(function client1AddsTextItem(conversation) {
-                logger.info('[APP]: client1AddsTextItem');
-                thisConversation = conversation;
-                return client1.addTextItem(conversation.convId, 'Hello from' + user1Email);
-            })
-
-            .then(function client2RespondsWithComment(item) {
-                logger.info('[APP]: client2RespondsWithComment');
-                var response = {
-                    convId: item.convId,
-                    parentId: item.itemId,
-                    content: 'Hello from ' + user2Email
-                };
-                return client2.addTextItem(item.convId, response);
-            })
-
-            .then(function returnResults(item) {
-                logger.info('[APP]: returnResults');
-                resolve({ client: client1, conv: thisConversation, item: item });
-            })
-
-            .catch(reject);
+            // Could also use getDirectConversationWithUser(bot2Email, true)
+            client1.getDirectConversationWithUser(bot2Email)
+                .then(conversation => {
+                    logger.info('[APP]: checkIfConversationExists');
+                    if (conversation) {
+                        logger.info('[APP]: conversation exists', conversation.convId);
+                        return Promise.resolve(conversation);
+                    } else {
+                        logger.info('[APP]: conversation does not exist, create new conversation');
+                        return client1.createDirectConversation(user2Email);
+                    }
+                })
+                .then(conversation => {
+                    logger.info('[APP]: client1AddsTextItem');
+                    thisConversation = conversation;
+                    return client1.addTextItem(conversation.convId, 'Hello from ' + bot1Email);
+                })
+                .then(item => {
+                    logger.info('[APP]: client2RespondsWithComment');
+                    var response = {
+                        convId: item.convId,
+                        parentId: item.itemId,
+                        content: 'Hello from ' + bot2Email
+                    };
+                    return client2.addTextItem(item.convId, response);
+                })
+                .then(item => {
+                    logger.info('[APP]: returnResults');
+                    resolve({ client: client1, conv: thisConversation, item: item });
+                })
+                .catch(reject);
         });
     };
 
@@ -191,7 +175,7 @@ var Test = function () {
     //*********************************************************************
     //* testLikes
     //*********************************************************************
-    this.testLikes = function testLikes(data) {
+    this.testLikes = function(data) {
         logger.info('[APP]: testLikes');
         return new Promise(function (resolve, reject) {
             var client = data.client;
@@ -222,7 +206,7 @@ var Test = function () {
     //*********************************************************************
     //* testFlags
     //*********************************************************************
-    this.testFlags = function testFlags(data) {
+    this.testFlags = function(data) {
         logger.info('[APP]: testFlags');
         return new Promise(function (resolve, reject) {
             var client = data.client;
@@ -253,7 +237,7 @@ var Test = function () {
     //*********************************************************************
     //* testMarkAsRead
     //*********************************************************************
-    this.testMarkAsRead = function testMarkAsRead(data) {
+    this.testMarkAsRead = function(data) {
         logger.info('[APP]: testMarkAsRead');
         return new Promise(function (resolve, reject) {
             var client = data.client;
@@ -273,17 +257,17 @@ var Test = function () {
     //*********************************************************************
     //* testPresence
     //*********************************************************************
-    this.testPresence = function testPresence(data) {
+    this.testPresence = function(data) {
         logger.debug('[APP]: testPresence');
         return new Promise(function (resolve, reject) {
             var client = data.client;
-            var userIdsList = [self.getUserId(config.users[1].email)];
+            var userIdsList = [self.getUserId(config.bots[1].client_id)];
             logger.debug('[APP]:', self.getEmail(client), 'subscribes to', userIdsList);
 
             client.subscribePresence(userIdsList)
 
             .then (function setPresence() {
-                var user2 = config.users[1].email;
+                var user2 = config.bots[1].client_id;
                 var client2 = self.getClient(user2);
                 var presenceState = {state: 'AWAY', dndUntil: 0};
                 logger.debug('[APP]: setPresence', presenceState, 'for', user2, self.getUserId(user2));
@@ -317,7 +301,7 @@ var Test = function () {
     //*********************************************************************
     //* testFileUpload
     //*********************************************************************
-    this.testFileUpload = function testFileUpload(data) {
+    this.testFileUpload = function(data) {
         logger.debug('[APP]: testFileUpload');
         return new Promise(function (resolve, reject) {
             var conv = data.conv;
@@ -338,35 +322,35 @@ var Test = function () {
     //*********************************************************************
     //* sentByMe -- helper
     //*********************************************************************
-    this.sentByMe = function sentByMe(client, item) {
+    this.sentByMe = function(client, item) {
         return (client.loggedOnUser.userId === item.creatorId);
     };
 
     //*********************************************************************
     //* getEmail -- helper
     //*********************************************************************
-    this.getEmail = function getEmail(client) {
+    this.getEmail = function(client) {
         return (client.loggedOnUser.emailAddress);
     };
 
     //*********************************************************************
     //* getUserId -- helper
     //*********************************************************************
-    this.getUserId = function getUserId(email) {
-        return clients.get(email).loggedOnUser.userId;
+    this.getUserId = function(client_id) {
+        return clients.get(client_id).loggedOnUser.userId;
     };
 
     //*********************************************************************
     //* getClient -- helper
     //*********************************************************************
-    this.getClient = function getClient(email) {
-        return clients.get(email);
+    this.getClient = function(client_id) {
+        return clients.get(client_id);
     };
 
     //*********************************************************************
     //* getFiles -- helper
     //*********************************************************************
-    this.getFiles = function getFiles(path) {
+    this.getFiles = function(path) {
         var files = [];
         var fileNames = fs.readdirSync(path);
         fileNames.forEach(function (element) {
@@ -380,7 +364,7 @@ var Test = function () {
     //*********************************************************************
     //* terminate -- helper
     //*********************************************************************
-    this.terminate = function terminate(err) {
+    this.terminate = function(err) {
         var error = new Error(err);
         logger.error('[APP]: Test failed ' + error.message);
         logger.error(error.stack);
@@ -390,7 +374,7 @@ var Test = function () {
     //*********************************************************************
     //* done -- helper
     //*********************************************************************
-    this.done = function done() {
+    this.done = function() {
         logger.info('[APP]: Completed Tests');
     };
 };
@@ -402,18 +386,18 @@ function runTest() {
 
     var test = new Test();
 
-    assert(config.users.length >= 2, 'At least two users need to be configured in config.json');
+    assert(config.bots.length >= 2, 'At least two bots need to be configured in config.json');
 
-    test.logonUsers()
-       .then (test.testAddItemsToConversation)
-       .then (test.testLikes)
+    test.logonBots()
+       .then(test.testAddItemsToConversation)
+       .then(test.testLikes)
 // temporary skip since there is an issue with the JS SDK for clearFlag       .then (test.testFlags)
-       .then (test.testMarkAsRead)
-       .then (test.testPresence)
-       .then (test.testFileUpload)
+       .then(test.testMarkAsRead)
+       .then(test.testPresence)
+       .then(test.testFileUpload)
 //            ... more tests
-       .then (test.done)
-       .catch (test.terminate);
+       .then(test.done)
+       .catch(test.terminate);
 }
 
 //*********************************************************************

@@ -1,44 +1,30 @@
 # node-sdk-example
-Example for the [circuit-node-sdk](https://github.com/circuit/circuit-node-sdk). 
+Example for the [circuit-node-sdk](https://github.com/circuit/circuit-node-sdk).
 The example shows how to logon to circuit, register for events, lookup a conversation, send a message, attach files to a message, send a comment.
 
 
 ## Requirements ##
-* [node 4.x](http://nodejs.org/download/)
+* [node 6.x](http://nodejs.org/download/)
 
 
 ## Getting Started ##
 
+### Use your own bot credentials (optional)
+* [Register an account](https://www.circuit.com/web/developers/registration) on circuitsandbox.net if you didn't yet
+* [Register two bots](http://circuit.github.io/oauth) on the sandbox (OAuth 2.0 Client Credentials)
+* Update config.json accordingly
+
+### Run the app
+
 ```bash
     git clone https://github.com/circuit/node-sdk-example.git
     cd node-sdk-example
-    cp config.json.template config.json
+    npm install
+    node index
 ```
 
-Edit config.json
-* Change "user" and "password" for the circuit accounts you'll use to run the example.
-    You can request a circuit account at the [Circuit Developer Community Portal](https://www.yourcircuit.com/web/developers).
-
-```bash
-"users" : [
-        {
-            "email"    : "user 1 email",
-            "password" : "user 1 password"          
-        },
-        {
-            "email"    : "user 2 email",
-            "password" : "user 2 password"          
-        }
-    ],
-``` 
- 
- Run the sample application with 
- 
-```bash
-    npm install 
-    node index
-``` 
+> Hint: pipe the logs to bunyan to get a nicer console output: `node index | node_modules/.bin/bunyan`
 
 
 
- 
+
