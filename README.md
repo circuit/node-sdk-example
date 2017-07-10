@@ -1,22 +1,11 @@
 # node-sdk-example
-Example for the [circuit node SDK](https://circuitsandbox.net/sdk). 
+Example for the [circuit-node-sdk](https://github.com/circuit/circuit-node-sdk). 
 The example shows how to logon to circuit, register for events, lookup a conversation, send a message, attach files to a message, send a comment.
 
-## Beta ##
-The circuit SDK and related examples are in Beta. While we are in Beta, we may still make incompatible changes. 
-
-Several changes have been made to the SDK
-* APIs return a Promise instead of using a callback
-* Support for Presence
-* Support for Likes
-* Support for Flags
-* Support for multiple users
-* Reduced dependencies, and footprint
-* Improved performance
 
 ## Requirements ##
 * [node 4.x](http://nodejs.org/download/)
-* [circuit module](https://circuitsandbox.net/sdk/)
+
 
 ## Getting Started ##
 
@@ -46,15 +35,8 @@ Edit config.json
  Run the sample application with 
  
 ```bash
-    npm install
-    wget https://circuitsandbox.net/circuit.tgz
-    npm install circuit.tgz
-    node index.js
-``` 
-
- If you do not have wget installed you can use curl to download circuit.tgz
-```bash
-curl "https://circuitsandbox.net/circuit.tgz" -o "circuit.tgz"
+    npm install 
+    node index
 ``` 
 
 
