@@ -1,9 +1,10 @@
 {
-  "name": "circuit_sdk_example",
-  "version": "2.0.0",
-  "description": "circuit sdk example ",
+  "name": "node-sdk-example",
+  "version": "2.1.0",
+  "description": "Basic example for the Circuit Node.js SDK",
   "main": "index.js",
   "dependencies": {
+    "circuit-node-sdk": "^1.2.1200",
     "bunyan": "^1.5.1",
     "file-api": "^0.10.4"
   },
@@ -12,5 +13,5 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Unify Inc.",
-  "license": "MIT"
+  "license": "Apache 2.0"
 }
