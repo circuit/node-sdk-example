@@ -1,10 +1,10 @@
 {
   "name": "node-sdk-example",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Basic example for the Circuit Node.js SDK",
   "main": "index.js",
   "dependencies": {
-    "circuit-node-sdk": "^1.2.1200",
+    "circuit-sdk": "^1.2.1200",
     "bunyan": "^1.5.1",
     "file-api": "^0.10.4"
   },

@@ -1,5 +1,5 @@
 # node-sdk-example
-Example for the [circuit-node-sdk](https://github.com/circuit/circuit-node-sdk).
+Example for the [circuit-sdk](https://github.com/circuit/circuit-sdk).
 The example shows how to logon to circuit, register for events, lookup a conversation, send a message, attach files to a message, send a comment.
 
 
