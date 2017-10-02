@@ -4,9 +4,10 @@
   "description": "Basic example for the Circuit Node.js SDK",
   "main": "index.js",
   "dependencies": {
-    "circuit-sdk": "^1.2.1200",
     "bunyan": "^1.5.1",
-    "file-api": "^0.10.4"
+    "circuit-sdk": "^1.2.1801",
+    "file-api": "^0.10.4",
+    "https-proxy-agent": "^2.1.0"
   },
   "devDependencies": {},
   "scripts": {

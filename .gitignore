@@ -32,8 +32,9 @@ config.json
 # Circuit Node SDK
 circuit.tgz
 
-# OS X 
+# OS X
 .DS_Store
 
 # VS Code
-.vscode
+.vscode/*
+!.vscode/launch.json

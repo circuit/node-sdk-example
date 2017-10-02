@@ -43,6 +43,7 @@ var logger = bunyan.createLogger({
 // Node utils
 var util = require('util');
 var assert = require('assert');
+var url = require('url');
 
 // For file upload tests
 var FileAPI = require('file-api');
@@ -55,6 +56,13 @@ var Circuit = require('circuit-sdk');
 
 logger.info('[APP]: Circuit set bunyan logger');
 Circuit.setLogger(sdkLogger);
+
+// Create proxy agent to be used by SDKs WebSocket and HTTP requests
+if (process.env.http_proxy) {
+    var HttpsProxyAgent = require('https-proxy-agent');
+    Circuit.NodeSDK.agent = new HttpsProxyAgent(url.parse(process.env.http_proxy));
+    logger.info(`Using proxy ${process.env.http_proxy}`)
+}
 
 //*********************************************************************
 //* Test
@@ -214,16 +222,16 @@ var Test = function() {
             var conv = data.conv;
 
             // user sets flag on item
-            client.setFlagItem(conv.convId, item.itemId)
+            client.flagItem(conv.convId, item.itemId)
 
              // user clears flag on item
             .then(function clearFlag() {
-                return client.clearFlagItem(conv.convId, item.itemId);
+                return client.unflagItem(conv.convId, item.itemId);
             })
 
            // user sets flag on item again
             .then(function setFlag() {
-                return client.setFlagItem(conv.convId, item.itemId);
+                return client.flagItem(conv.convId, item.itemId);
             })
 
             .then(function returnParameters() {
@@ -391,7 +399,7 @@ function runTest() {
     test.logonBots()
        .then(test.testAddItemsToConversation)
        .then(test.testLikes)
-// temporary skip since there is an issue with the JS SDK for clearFlag       .then (test.testFlags)
+       .then (test.testFlags)
        .then(test.testMarkAsRead)
        .then(test.testPresence)
        .then(test.testFileUpload)
