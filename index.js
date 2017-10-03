@@ -60,7 +60,7 @@ Circuit.setLogger(sdkLogger);
 // Create proxy agent to be used by SDKs WebSocket and HTTP requests
 if (process.env.http_proxy) {
     var HttpsProxyAgent = require('https-proxy-agent');
-    Circuit.NodeSDK.agent = new HttpsProxyAgent(url.parse(process.env.http_proxy));
+    Circuit.NodeSDK.proxyAgent = new HttpsProxyAgent(url.parse(process.env.http_proxy));
     logger.info(`Using proxy ${process.env.http_proxy}`)
 }
 
