@@ -5,8 +5,8 @@
   "main": "index.js",
   "dependencies": {
     "bunyan": "^1.5.1",
-    "circuit-sdk": "^1.2.1801",
-    "file-api": "^0.10.4",
+    "circuit-sdk": "^1.2.2200",
+    "file-api": "git://github.com/voodoohop/file-api.git",
     "https-proxy-agent": "^2.1.0"
   },
   "devDependencies": {},

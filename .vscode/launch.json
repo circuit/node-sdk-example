@@ -9,6 +9,7 @@
       "request": "launch",
       "name": "Launch Program",
       "program": "${workspaceRoot}/index.js",
+      "protocol": "inspector",
       //"env": {"http_proxy": "http://172.20.100.5:8080"}
     },
     {
