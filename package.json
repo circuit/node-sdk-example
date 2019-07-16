@@ -7,7 +7,7 @@
     "bunyan": "^1.8.12",
     "circuit-sdk": "^1.2.6002",
     "file-api": "git://github.com/voodoohop/file-api.git",
-    "https-proxy-agent": "^2.2.2"
+    "https-proxy-agent": "^2.2.0"
   },
   "devDependencies": {},
   "scripts": {
