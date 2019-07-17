@@ -87,7 +87,8 @@ var Test = function() {
                 var client = new Circuit.Client({
                     client_id: bot.client_id,
                     client_secret: bot.client_secret,
-                    domain: config.domain
+                    domain: config.domain,
+                    scope: config.scope
                 });
                 self.addEventListeners(client);  // register evt listeners
                 clients.set(bot.client_id, client); // add client to the map
@@ -146,7 +147,7 @@ var Test = function() {
             logger.info('[APP]: Bot clientId\'s ', bot1ClientId, bot2ClientId);
 
             // Could also use getDirectConversationWithUser(bot2Email, true)
-            client1.getDirectConversationWithUser(bot2Email)
+            client1.getDirectConversationWithUser(bot2Email, true)
                 .then(conversation => {
                     logger.info('[APP]: checkIfConversationExists');
                     if (conversation) {
