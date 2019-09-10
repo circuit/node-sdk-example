@@ -1,17 +1,16 @@
 {
   "name": "node-sdk-example",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "Basic example for the Circuit Node.js SDK",
   "main": "index.js",
   "dependencies": {
     "bunyan": "^1.8.12",
     "circuit-sdk": "latest",
-    "file-api": "git://github.com/voodoohop/file-api.git",
     "https-proxy-agent": "^2.2.0"
   },
   "devDependencies": {},
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js"
   },
   "author": "Unify Inc.",
   "license": "Apache 2.0"

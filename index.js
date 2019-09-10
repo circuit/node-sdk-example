@@ -46,13 +46,12 @@ var assert = require('assert');
 var url = require('url');
 
 // For file upload tests
-var FileAPI = require('file-api');
-var File = FileAPI.File;
 var fs = require('fs');
 
 // Circuit SDK
 logger.info('[APP]: get Circuit instance');
 var Circuit = require('circuit-sdk');
+var File = Circuit.File || require('./File');
 
 logger.info('[APP]: Circuit set bunyan logger');
 Circuit.setLogger(sdkLogger);
