@@ -51,6 +51,8 @@ var fs = require('fs');
 // Circuit SDK
 logger.info('[APP]: get Circuit instance');
 var Circuit = require('circuit-sdk');
+
+// Use Circuit's HTML5 File object
 var File = Circuit.File || require('./File');
 
 logger.info('[APP]: Circuit set bunyan logger');

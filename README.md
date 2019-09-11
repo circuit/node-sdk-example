@@ -10,8 +10,7 @@ The example shows how to logon to circuit, register for events, lookup a convers
 ## Getting Started ##
 
 ### Use your own bot credentials (optional)
-* [Register an account](https://circuit.github.io/) on circuitsandbox.net if you didn't yet
-* [Register two bots](http://circuit.github.io/oauth) on the sandbox (OAuth 2.0 Client Credentials)
+* [Register an account](https://circuit.github.io/) on circuitsandbox.net and create two bots. See details on [Developer Portal](https://circuit.github.io/)
 * Update config.json accordingly
 
 ### Run the app
