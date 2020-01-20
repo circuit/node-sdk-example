@@ -4,7 +4,7 @@ The example shows how to logon to circuit, register for events, lookup a convers
 
 
 ## Requirements ##
-* [node 6.x](http://nodejs.org/download/)
+* [node 8.x](http://nodejs.org/download/)
 
 
 ## Getting Started ##

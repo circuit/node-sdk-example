@@ -1,5 +1,5 @@
 /**
- *  Copyright 2017 Unify Software and Solutions GmbH & Co.KG.
+ *  Copyright 2020 Unify Software and Solutions GmbH & Co.KG.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -20,403 +20,232 @@
 
 'use strict';
 
-// Load configuration
-var config = require('./config.json');
+const config = require('./config.json');
+const bunyan = require('bunyan');
+const util = require('util');
+const assert = require('assert');
+const url = require('url');
+const fs = require('fs');
+const Circuit = require('circuit-sdk');
 
-// Logger
-var bunyan = require('bunyan');
+(async () => {
+    let client1, client2; // client instances
+    const bot1Email = config.bots[0].email;
+    const bot2Email = config.bots[1].email;
+    const user1Email = config.users[0];
+    const user2Email = config.users[1];
 
-// SDK logger
-var sdkLogger = bunyan.createLogger({
-    name: 'sdk',
-    stream: process.stdout,
-    level: config.sdkLogLevel
-});
 
-// Application logger
-var logger = bunyan.createLogger({
-    name: 'app',
-    stream: process.stdout,
-    level: 'info'
-});
+    // Create SDK logger
+    const sdkLogger = bunyan.createLogger({
+        name: 'sdk',
+        stream: process.stdout,
+        level: config.sdkLogLevel
+    });
 
-// Node utils
-var util = require('util');
-var assert = require('assert');
-var url = require('url');
+    // Create application logger
+    const logger = bunyan.createLogger({
+        name: 'app',
+        stream: process.stdout,
+        level: 'info'
+    });
 
-// For file upload tests
-var fs = require('fs');
+    logger.info('[APP]: Circuit set bunyan logger');
+    Circuit.setLogger(sdkLogger);
 
-// Circuit SDK
-logger.info('[APP]: get Circuit instance');
-var Circuit = require('circuit-sdk');
+    // Create proxy agent to be used by SDKs WebSocket and HTTP requests if needed
+    if (process.env.http_proxy) {
+        const HttpsProxyAgent = require('https-proxy-agent');
+        Circuit.NodeSDK.proxyAgent = new HttpsProxyAgent(url.parse(process.env.http_proxy));
+        logger.info(`Using proxy ${process.env.http_proxy}`)
+    }
 
-// Use Circuit's HTML5 File object
-var File = Circuit.File || require('./File');
+    // Helper function
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
 
-logger.info('[APP]: Circuit set bunyan logger');
-Circuit.setLogger(sdkLogger);
+    async function logonBots() {
+        logger.info('[APP]: Create SDK client instances');
+        const clients = [];
 
-// Create proxy agent to be used by SDKs WebSocket and HTTP requests
-if (process.env.http_proxy) {
-    var HttpsProxyAgent = require('https-proxy-agent');
-    Circuit.NodeSDK.proxyAgent = new HttpsProxyAgent(url.parse(process.env.http_proxy));
-    logger.info(`Using proxy ${process.env.http_proxy}`)
-}
-
-//*********************************************************************
-//* Test
-//*********************************************************************
-var Test = function() {
-
-    var self = this;
-    var clients = new Map(); // key:email -> value:client
-
-    //*********************************************************************
-    //* logonBots
-    //*********************************************************************
-    this.logonBots = function() {
-        logger.info('[APP]: create client instances');
-
-        return new Promise(function (resolve, reject) {
-            var logonTasks = [];
-
-            config.bots.forEach(bot => {
-                logger.info('[APP]: createClient');
-                // Use Client Credentials grant for the bots
-                var client = new Circuit.Client({
-                    client_id: bot.client_id,
-                    client_secret: bot.client_secret,
-                    domain: config.domain,
-                    scope: config.scope
-                });
-                self.addEventListeners(client);  // register evt listeners
-                clients.set(bot.client_id, client); // add client to the map
-                logonTasks.push(client.logon());
+        const logonPromises = config.bots.map(bot => {
+            // Use Client Credentials grant for bots
+            const client = new Circuit.Client({
+                client_id: bot.client_id,
+                client_secret: bot.client_secret,
+                domain: config.domain,
+                scope: config.scope
             });
-
-            Promise.all(logonTasks)
-                .then(results => {
-                    results.forEach(result => logger.info(`[APP]: Bot {bot.displayName} logged on`));
-                    resolve();
-                })
-                .catch(reject);
+            clients.push(client);
+            addEventListeners(client);  // register SDK event listeners
+            return client.logon();
         });
+
+        // Wait until all bots are logged on
+        const bots = await Promise.all(logonPromises);
+        bots.forEach(bot => logger.info(`[APP]: Bot ${bot.displayName} logged on`));
+        return clients;
     };
 
-    //*********************************************************************
-    //* addEventListeners
-    //*********************************************************************
-    this.addEventListeners = function(client) {
-        logger.info('[APP]: addEventListeners');
-        Circuit.supportedEvents.forEach(e => client.addEventListener(e, self.logEvent));
+    function addEventListeners(client) {
+        logger.info(`[APP]: addEventListeners for bot`);
+        // Just log the events
+        Circuit.supportedEvents.forEach(e => client.addEventListener(e, evt => {
+            logger.info(`[APP]: ${evt.type} event received`);
+            logger.debug('[APP]:', util.inspect(evt, { showHidden: true, depth: null }));
+        }));
     };
 
-    //*********************************************************************
-    //* logEvent -- helper
-    //*********************************************************************
-    this.logEvent = function(evt) {
-        logger.info(`[APP]: ${evt.type} event received`);
-        logger.debug('[APP]:', util.inspect(evt, { showHidden: true, depth: null }));
-    };
+    /** 
+     * Scenario:    
+     *  Bot 1 looks up the direct conversation with bot 2 (create conversation if not existing)
+     *  Bot 1 sends a message to bot 2
+     *  Bot 1 updates message sent to bot 2
+     *  Bot 2 responds with a comment
+     */
+    async function sendMessageDirect() {
+        logger.info('[APP]: sendMessageDirect');
 
-    //*********************************************************************
-    //* testAddItemsToConversation
-    //*********************************************************************
-    this.testAddItemsToConversation = function() {
-        logger.info('[APP]: testAddItemsToConversation');
-
-        // test scenario:
-        // user 1 looks up the direct conversation with user 2
-        // if the conversation is not found, user 1 creates a direct conversation
-        // user 1 sends a message to user 2
-        // user 2 responds with a comment
-
-        return new Promise(function (resolve, reject) {
-            var thisConversation = null;
-
-            var bot1ClientId = config.bots[0].client_id;
-            var bot2ClientId = config.bots[1].client_id;
-
-            var bot1Email = config.bots[0].email;
-            var bot2Email = config.bots[1].email;
-
-            var client1 = self.getClient(bot1ClientId);
-            var client2 = self.getClient(bot2ClientId);
-
-            logger.info('[APP]: Bot clientId\'s ', bot1ClientId, bot2ClientId);
-
-            // Could also use getDirectConversationWithUser(bot2Email, true)
-            client1.getDirectConversationWithUser(bot2Email, true)
-                .then(conversation => {
-                    logger.info('[APP]: checkIfConversationExists');
-                    if (conversation) {
-                        logger.info('[APP]: conversation exists', conversation.convId);
-                        return Promise.resolve(conversation);
-                    } else {
-                        logger.info('[APP]: conversation does not exist, create new conversation');
-                        return client1.createDirectConversation(user2Email);
-                    }
-                })
-                .then(conversation => {
-                    logger.info('[APP]: client1AddsTextItem');
-                    thisConversation = conversation;
-                    return client1.addTextItem(conversation.convId, 'Hello from ' + bot1Email);
-                })
-                .then(item => {
-                    logger.info('[APP]: client2RespondsWithComment');
-                    var response = {
-                        convId: item.convId,
-                        parentId: item.itemId,
-                        content: 'Hello from ' + bot2Email
-                    };
-                    return client2.addTextItem(item.convId, response);
-                })
-                .then(item => {
-                    logger.info('[APP]: returnResults');
-                    resolve({ client: client1, conv: thisConversation, item: item });
-                })
-                .catch(reject);
+        const conversation = await client1.getDirectConversationWithUser(bot2Email, true);
+        logger.info(`[APP]: Direct conversation: ${conversation.convId}`);
+        
+        let item = await client1.addTextItem(conversation.convId, `Hello from ${bot1Email}`);
+        logger.info(`[APP]: Bot1 sent message. ItemId: ${item.itemId}`);
+        
+        item = await client1.updateTextItem({
+            itemId: item.itemId,
+            subject: 'Greetings',
+            content: `Hello from <b>${bot1Email}</b>!`
         });
-    };
+        logger.info(`[APP]: Bot1 updated message. ItemId: ${item.itemId}`);
 
-
-    //*********************************************************************
-    //* testLikes
-    //*********************************************************************
-    this.testLikes = function(data) {
-        logger.info('[APP]: testLikes');
-        return new Promise(function (resolve, reject) {
-            var client = data.client;
-            var item = data.item;
-            var conv = data.conv;
-
-            // user likes item
-            client.likeItem(item.itemId)
-
-            // user unlikes item
-            .then(function unlike() {
-                return client.unlikeItem(item.itemId);
-            })
-
-            // user likes item again
-            .then(function like() {
-                return client.likeItem(item.itemId);
-            })
-
-            .then(function returnResults() {
-                resolve({ client: client, conv: conv, item: item });
-            })
-
-            .catch(reject);
+        item = await client2.addTextItem(item.convId, {
+            convId: item.convId,
+            parentId: item.itemId,
+            content: `Hello from ${bot2Email}`
         });
+        logger.info(`[APP]: Bot2 replied to message. ItemId: ${item.itemId}`);
     };
 
-    //*********************************************************************
-    //* testFlags
-    //*********************************************************************
-    this.testFlags = function(data) {
-        logger.info('[APP]: testFlags');
-        return new Promise(function (resolve, reject) {
-            var client = data.client;
-            var item = data.item;
-            var conv = data.conv;
+    /** 
+     * Scenario:    
+     *  Bot 1 creates new group conversation with bot 2
+     *  Bot 1 adds two other users to conversation with first looking up their userId by email
+     *  Bot 1 post a message with mentioning user
+     *  Bot 1 removes bot 2 from conversation
+     */
+    async function sendMessageGroup() {
+        logger.info('[APP]: sendMessageDirect');
+        const bot2UserId = client2.loggedOnUser.userId;
 
-            // user sets flag on item
-            client.flagItem(conv.convId, item.itemId)
+        const conversation = await client1.createGroupConversation([bot2UserId], 'node-sdk-example group');
+        logger.info(`[APP]: Group conversation created: ${conversation.convId}`);
+        
+        const users = await client1.getUsersByEmail([user1Email, user2Email]);
+        const userIds = users.map(u => u.userId);
+        await client1.addParticipant(conversation.convId, userIds);
+        logger.info(`[APP]: Users added to conversation: ${userIds}`);
+        
+        let item = await client1.addTextItem(conversation.convId,
+            `<span class="mention" abbr="${users[0].userId}">@${users[0].firstName}</span>, check this link <a href="http://github.com/circuit">Circuit on github</a>`);
+        logger.info(`[APP]: Bot1 sent message. ItemId: ${item.itemId}`);
 
-             // user clears flag on item
-            .then(function clearFlag() {
-                return client.unflagItem(conv.convId, item.itemId);
-            })
+        await client1.removeParticipant(conversation.convId, [userIds[1]]);
+        logger.info('[APP]: User 2 removed from conversation');
 
-           // user sets flag on item again
-            .then(function setFlag() {
-                return client.flagItem(conv.convId, item.itemId);
-            })
-
-            .then(function returnParameters() {
-                return resolve(data);
-            })
-
-            .catch(reject);
-        });
+        return { conversation, item };
     };
 
-    //*********************************************************************
-    //* testMarkAsRead
-    //*********************************************************************
-    this.testMarkAsRead = function(data) {
-        logger.info('[APP]: testMarkAsRead');
-        return new Promise(function (resolve, reject) {
-            var client = data.client;
-            var item = data.item;
-            var conv = data.conv;
-
-            client.markItemsAsRead(conv.convId, item.modificationTime)
-
-            .then(function returnPrameters() {
-                return resolve(data);
-            })
-
-            .catch(reject);
-        });
-    };
-
-    //*********************************************************************
-    //* testPresence
-    //*********************************************************************
-    this.testPresence = function(data) {
-        logger.debug('[APP]: testPresence');
-        return new Promise(function (resolve, reject) {
-            var client = data.client;
-            var userIdsList = [self.getUserId(config.bots[1].client_id)];
-            logger.debug('[APP]:', self.getEmail(client), 'subscribes to', userIdsList);
-
-            client.subscribePresence(userIdsList)
-
-            .then (function setPresence() {
-                var user2 = config.bots[1].client_id;
-                var client2 = self.getClient(user2);
-                var presenceState = {state: 'AWAY', dndUntil: 0};
-                logger.debug('[APP]: setPresence', presenceState, 'for', user2, self.getUserId(user2));
-                return client2.setPresence(presenceState);
-            })
-
-            .then (function getPresence() {
-                logger.debug('[APP]: getPresence');
-                return client.getPresence(userIdsList, false);
-            })
-
-            .then (function logPresence(presenceList) {
-                logger.debug('[APP]: presenceList\n', util.inspect(presenceList, { showHidden: true, depth: null }));
-                return Promise.resolve();
-            })
-
-            // .then (function unsubscribePresence(){
-            //     logger.debug('[APP]:',self.getEmail(client), 'unsubscribes from', userIdsList);
-            //     return client.unsubscribePresence(userIdsList);
-            // })
-
-            .then(function returnParameters() {
-                logger.debug('[APP]: done with presence tests');
-                return resolve(data);
-            })
-
-            .catch(reject);
-        });
-    };
-
-    //*********************************************************************
-    //* testFileUpload
-    //*********************************************************************
-    this.testFileUpload = function(data) {
-        logger.debug('[APP]: testFileUpload');
-        return new Promise(function (resolve, reject) {
-            var conv = data.conv;
-            var client = data.client;
-            var files = self.getFiles(config.filesPath);
-            var message = {content: 'test file upload', attachments: files};
-
-            client.addTextItem(conv.convId, message)
-
-            .then (function returnParameters() {
-                return resolve(data);
-            })
-
-            .catch(reject);
-        });
-    };
-
-    //*********************************************************************
-    //* sentByMe -- helper
-    //*********************************************************************
-    this.sentByMe = function(client, item) {
-        return (client.loggedOnUser.userId === item.creatorId);
-    };
-
-    //*********************************************************************
-    //* getEmail -- helper
-    //*********************************************************************
-    this.getEmail = function(client) {
-        return (client.loggedOnUser.emailAddress);
-    };
-
-    //*********************************************************************
-    //* getUserId -- helper
-    //*********************************************************************
-    this.getUserId = function(client_id) {
-        return clients.get(client_id).loggedOnUser.userId;
-    };
-
-    //*********************************************************************
-    //* getClient -- helper
-    //*********************************************************************
-    this.getClient = function(client_id) {
-        return clients.get(client_id);
-    };
-
-    //*********************************************************************
-    //* getFiles -- helper
-    //*********************************************************************
-    this.getFiles = function(path) {
-        var files = [];
-        var fileNames = fs.readdirSync(path);
-        fileNames.forEach(function (element) {
-            var file = new File(path + element);
+    /** 
+     * Scenario:    
+     *  Bot 1 reads local files and uploads them to conversation
+     */
+    async function postFiles(conversation) {
+        const path = config.filesPath;
+        const files = [];
+        const fileNames = fs.readdirSync(path);
+        fileNames.forEach(name => {
+            const file = new Circuit.File(path + name);
             files.push(file);
         });
-        logger.debug('[APP]: getFiles' + files);
-        return files;
-    };
 
-    //*********************************************************************
-    //* terminate -- helper
-    //*********************************************************************
-    this.terminate = function(err) {
-        var error = new Error(err);
-        logger.error('[APP]: Test failed ' + error.message);
-        logger.error(error.stack);
-        process.exit(1);
-    };
+        const item = await client1.addTextItem(conversation.convId, {
+            content: 'test file upload',
+            attachments: files
+        });
+        logger.info(`[APP]: Bot1 posted ${item.attachments.length} files to item ${item.itemId}`);
+    }
 
-    //*********************************************************************
-    //* done -- helper
-    //*********************************************************************
-    this.done = function() {
-        logger.info('[APP]: Completed Tests');
-    };
-};
+    /** 
+     * Scenario:    
+     *  Bot 1 gets full presence of bot2
+     *  Bot 1 subscribes to presence changes of bot2
+     *  Bot 2 changes presence to AWAY
+     *  Bot 2 receives presence change event (note this is a second event listener registered in
+     *  addition to the ones registered in addEventListeners function)
+     *  Bot 2 removes presence subscription
+     */
+    async function presenceTest(conversation) {
+        const bot2UserId = client2.loggedOnUser.userId;
 
-//*********************************************************************
-//* runTest
-//*********************************************************************
-function runTest() {
+        const presence = await client1.getPresence([bot2UserId], true);
+        logger.info('[APP]: Bot2 presence is:', util.inspect(presence[0], { showHidden: true, depth: null }));
 
-    var test = new Test();
+        const handleEvt = async evt => 
+            client1.addTextItem(conversation.convId, util.inspect(evt, { showHidden: true, depth: null }));
+        client1.addEventListener('userPresenceChanged', handleEvt);
 
-    assert(config.bots.length >= 2, 'At least two bots need to be configured in config.json');
+        await client1.subscribePresence([bot2UserId]);
+        logger.info('[APP]: Bot1 subscribed to presence changes of bot2');
 
-    test.logonBots()
-       .then(test.testAddItemsToConversation)
-       .then(test.testLikes)
-       .then (test.testFlags)
-       .then(test.testMarkAsRead)
-       .then(test.testPresence)
-       .then(test.testFileUpload)
-//            ... more tests
-       .then(test.done)
-       .catch(test.terminate);
-}
+        await client2.setPresence({
+            state: Circuit.Enums.PresenceState.DND,
+            dndUntil: Date.now() + 5000
+        });
+        logger.info('[APP]: Bot2 presence set to DND for 5 sec');
 
-//*********************************************************************
-//* main
-//*********************************************************************
-runTest();
+        // Wait a second before unsubscribing so backend has time to send events,
+        // then change presence back to AVAILABLE
+        await sleep(1000);
+        await client1.unsubscribePresence([bot2UserId]);
+        client1.removeEventListener('userPresenceChanged', handleEvt);
+        logger.info('[APP]: Bot1 unsubscribed to presence changes of bot2');
 
+        await client2.setPresence({ state: Circuit.Enums.PresenceState.AVAILABLE });
+        logger.info('[APP]: Bot2 presence changed to AVAILABLE');
 
+    }
 
+    /**
+     * Start
+     */
+    try {
+        [client1, client2] = await logonBots();
+
+        // Send direct messages
+        await sendMessageDirect();
+
+        // Create group conversation, add participants and post message
+        const { conversation, item } = await sendMessageGroup();
+
+        // Mark items before NOW on conversation as read for bot 1
+        await client1.markItemsAsRead(conversation.convId);
+
+        // Like & flag
+        await client1.likeItem(item.itemId);
+        await client1.flagItem(conversation.convId, item.itemId);
+
+        // Post files
+        await postFiles(conversation);
+
+        // Get/set presence, subscribe/unsubscribe to presence events and handle presence events
+        await presenceTest(conversation);
+
+    } catch (err) {
+        logger.error(`[APP]: Error ${err.message}`, err.stack);
+    }
+})();
 
 
 
