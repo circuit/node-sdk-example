@@ -1,5 +1,9 @@
 # node-sdk-example
-Example for the [circuit-sdk](https://github.com/circuit/circuit-sdk).
+
+[![Run on Repl.it](https://repl.it/badge/github/circuit/node-sdk-example)](https://repl.it/github/circuit/node-sdk-example)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
+Example for the [Circuit Node SDK](https://github.com/circuit/circuit-sdk).
 The example shows how to logon to circuit, register for events, lookup a conversation, send a message/reply, attach files to a message and more.
 
 
