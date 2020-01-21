@@ -1,6 +1,6 @@
 # node-sdk-example
 Example for the [circuit-sdk](https://github.com/circuit/circuit-sdk).
-The example shows how to logon to circuit, register for events, lookup a conversation, send a message, attach files to a message, send a comment.
+The example shows how to logon to circuit, register for events, lookup a conversation, send a message/reply, attach files to a message and more.
 
 
 ## Requirements ##
@@ -21,6 +21,8 @@ The example shows how to logon to circuit, register for events, lookup a convers
     npm install
     node index
 ```
+
+You may login as maeva.barnaby@mailinator.com to https://circuitsandbox.net and verify the sent messages.
 
 > Hint: pipe the logs to bunyan to get a nicer console output: `node index | node_modules/.bin/bunyan`
 

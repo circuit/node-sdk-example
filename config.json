@@ -1,0 +1,16 @@
+{
+    "sdkLogLevel": "error",
+    "filesPath": "./files/",
+    "domain": "circuitsandbox.net",
+    "scope": "READ_USER_PROFILE,WRITE_USER_PROFILE,READ_CONVERSATIONS,WRITE_CONVERSATIONS,READ_USER,MENTION_EVENT",
+    "bots": [{
+        "client_id": "bda08259b1344150be968ae5db047d72",
+        "client_secret": "583eaf007fc64cc9a11f9b8ea20416d6",
+        "email": "node-sdk-example@circuit.com"
+    }, {
+        "client_id": "49bf415decd04516b865c378aab8676e",
+        "client_secret": "fb69844d16814d138390000928ac4b03",
+        "email": "node-sdk-example2@circuit.com"
+    }],
+    "users": ["kim.jackson@mailinator.com", "maeva.barnaby@mailinator.com"]
+}
