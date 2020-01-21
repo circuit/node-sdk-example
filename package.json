@@ -6,11 +6,7 @@
   "license": "Apache 2.0",
   "main": "index.js",
   "scripts": {
-<<<<<<< Updated upstream
-    "start": "node index.js"
-=======
     "start": "node index .js | node_modules/.bin/bunyan"
->>>>>>> Stashed changes
   },
   "dependencies": {
     "bunyan": "^1.8.12",
