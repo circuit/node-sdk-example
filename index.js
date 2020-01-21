@@ -242,6 +242,7 @@ const Circuit = require('circuit-sdk');
         // Get/set presence, subscribe/unsubscribe to presence events and handle presence events
         await presenceTest(conversation);
 
+        console.log('Press Ctrl-C to exit');
     } catch (err) {
         logger.error(`[APP]: Error ${err.message}`, err.stack);
     }
