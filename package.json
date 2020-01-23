@@ -8,7 +8,6 @@
   "scripts": {
     "start": "node index .js | node_modules/.bin/bunyan"
   },
-  "bin": "./index.js",
   "dependencies": {
     "bunyan": "^1.8.12",
     "circuit-sdk": "^1.2.7604",
