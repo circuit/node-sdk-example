@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 /**
  *  Copyright 2020 Unify Software and Solutions GmbH & Co.KG.
  *

@@ -5,11 +5,12 @@
   "author": "Unify Inc.",
   "license": "Apache 2.0",
   "main": "index.js",
+  "bin": "./index.js",
   "scripts": {
     "start": "node index .js | node_modules/.bin/bunyan"
   },
   "dependencies": {
-    "bunyan": "^1.8.12",
+    "bunyan": "^2.0.2",
     "circuit-sdk": "^1.2.7604",
     "https-proxy-agent": "^2.2.4"
   },
